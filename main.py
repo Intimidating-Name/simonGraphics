@@ -25,6 +25,7 @@ class Tile:
         self.frequency = frequency
         self.color = color
         self.shape = None
+        self.draw()
 
     def draw(self):
         self.shape = pygame.draw.rect(screen, self.color, pygame.Rect(self.x, self.y, self.width, self.height))
@@ -46,10 +47,6 @@ class Tile:
         self.draw()
         pygame.display.update()
 
-    def collidepoint(self, pos):
-        if self.shape.collidepoint(pos):
-            self.activate()
-
     def check_clicked(self, pos):
         return self.shape.collidepoint(pos)
 
@@ -63,14 +60,12 @@ class Game:
         self.max_levels = max_levels
         self.regular_mode = False
         self.timeout = 2
-        self.waiting = False
 
     def next_level(self):
         print("next level")
         self.simon.add_color()
         self.player.increase_score()
         self.show_level()
-        self.waiting = True
         self.timeout = self.timeout - (self.timeout * 0.1)
 
     def show_level(self):
@@ -86,7 +81,6 @@ class Game:
         if tile.check_clicked(pos):
             print("You have passed this test. On to the next.")
             self.player.increase_score()
-            self.waiting = False
         else:
             print("You lose.")
             self.over = True
@@ -103,6 +97,12 @@ class Simon:
     def add_color(self):
         self.history.append(random.choice(self.colors))
 
+    def find_clicked(self, pos):
+        for x in self.colors:
+            if x.check_clicked(pos):
+                x.activate()
+                return x
+
 class Player:
 
     def __init__(self):
@@ -112,23 +112,37 @@ class Player:
         self.score = self.score + 1
 
 tile_blue = Tile(0, 355, 200, Tile.COLOR_BLUE)
-tile_blue.draw()
 tile_red = Tile(0, 0, 473, Tile.COLOR_RED)
-tile_red.draw()
 tile_yellow = Tile(355, 355, 1385, Tile.COLOR_YELLOW)
-tile_yellow.draw()
 tile_green = Tile(355, 0, 941, Tile.COLOR_GREEN)
-tile_green.draw()
 
 game = Game(22, tile_blue, tile_red, tile_yellow, tile_green)
 
 while not game.over:
-    if not game.waiting:
-        game.next_level()
-    for tile in game.simon.history:
-        pygame.event.wait()
-        mouse1, mouse2, mouse3 = pygame.mouse.get_pressed()
-        pos = pygame.mouse.get_pos()
-        game.test_player(pos)
+    time.sleep(game.timeout)
+    game.next_level()
 
-    pygame.display.update()
+    tile = None
+    for tile in game.simon.history:
+        pos = False
+        while not pos:
+            event = pygame.event.wait()
+            if event.type is pygame.MOUSEBUTTONDOWN:
+                mouse1, mouse2, mouse3 = pygame.mouse.get_pressed()
+                pos = pygame.mouse.get_pos()
+        tile_clicked = game.simon.find_clicked(pos)
+        print(tile_clicked)
+        if tile_clicked is tile:
+            game.player.increase_score()
+        else:
+            print("You lose.")
+            game.over = True
+            break
+
+    if game.over:
+        for i in range(3):
+            tile.activate()
+        print(game.player.score)
+        play_again = input("Do you want to play again? ").lower()
+        if play_again == "y":
+            game = Game(22, tile_blue, tile_red, tile_yellow, tile_green)
